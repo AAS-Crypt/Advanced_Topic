@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Adjacency Matrix</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.6.1/d3.min.js" integrity="sha512-MefNfAGJ/pEy89xLOFs3V6pYPs6AmUhXJrRlydI/9wZuGrqxmrdQ80zKHUcyadAcpH67teDZcBeS6oMJLPtTqw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    
+function groupBy(xs, key) {
+    return xs.reduce(function(rv, x) {
+        (rv[x[key]] = rv[x[key]] || []).push(x);
+        return rv;
+    }, {});
+}
+
+function sortAlphabetically(a, b) {
+    a = a.toUpperCase(); 
+    b = b.toUpperCase(); 
+    if (a < b) {
+        return -1;
+    }
+    if (a > b) {
+        return 1;
+    }
+
+    
+    return 0;
+}
+
+async function build() {
+    const orgs = await d3.csv("org.csv");
+    const techs = await d3.csv("tech.csv");
+    const matrixSource = await d3.csv("matrix.csv");
+
+    
+    const orgsGrouped = groupBy(orgs, "country");
+    
+    const techsGrouped = groupBy(techs, "type");
+
+    
+    
+    const countries = ["US", "UK", "France", "Italy", "Russia", "Japan", "International"];
+    const techTypes = ["Space object", "Space program", "Booster", "Plane", "Telecommunications", 
+                       "Aerospace company", "Airline Company"];
+
+    
+    orgsSorted = [];
+    techsSorted = [];
+
+    for (let i = 0; i < countries.length; i++){
+        let countryOrgs = orgsGrouped[countries[i]];
+        countryOrgs.sort((a, b) => sortAlphabetically(a.id, b.id))
+        for(let j = 0; j < countryOrgs.length; j++)
+            orgsSorted.push(countryOrgs[j]);
+    }
+
+    for (let i = 0; i < techTypes.length; i++){
+        let typeTechs = techsGrouped[techTypes[i]];
+        typeTechs.sort((a, b) => sortAlphabetically(a.id, b.id))
+        for(let j = 0; j < typeTechs.length; j++)
+            techsSorted.push(typeTechs[j]);
+    }
+
+    
+    var matrix = [];
+    for(let i=0; i<orgs.length; i++) {
+        for(let j=0; j<techs.length; j++) {
+            var org = orgsSorted[i];
+            var tech = techsSorted[j];
+            var weight = matrixSource.find((el) => el["Organization"] === org.id)[tech.id];
+            if (weight) weight = parseInt(weight);
+            else weight = 0;
+            var grid = {
+                id: org.id+"-"+tech.id,
+                x:j,
+                y:i,
+                weight:weight
+            }
+            matrix.push(grid);
+        }
+    }
+
+    var dimension = {
+        width: window.innerWidth*0.65,
+        height: window.innerWidth*0.45,
+        margin: {
+            top: 180,
+            right: 10,
+            bottom: 10,
+            left: 260
+        }
+    }
+
+    dimension.boundedWidth = dimension.width
+        - dimension.margin.right
+        - dimension.margin.left;
+
+    dimension.boundedHeight = dimension.height
+        - dimension.margin.top
+        - dimension.margin.bottom;
+
+    const wrapper = d3.select("#wrapper")
+        .append("svg")
+        .attr("width", dimension.width)
+        .attr("height", dimension.height)
+
+    const bounds = wrapper.append("g")
+        .style("transform",`translate(${dimension.margin.left}px,${dimension.margin.top}px)`);
+    
+    techsSorted2 = [];
+    for (j = 0; j < 26; j++){
+      for (i = 0; i < techsSorted.length; i++ ){
+        techsSorted2.push(techsSorted[i]);
+      }
+    }
+    
+    const pole = bounds
+        .selectAll("rect")
+        .data(matrix)
+        .enter()
+        .append("rect")
+        .attr("class","grid")
+        .attr("width",25)
+        .attr("height",25)
+        .attr("x", d=>d.x*25)
+        .attr("y", d=>d.y*25)
+        .style("fill-opacity", d=>d.weight*0.2)
+        .data(techsSorted2)
+        .style("fill", d=>d["type"] === "Space object" ? "darkblue" : 
+                          d["type"] === "Space program" ? "darkorange" :
+                          d["type"] === "Booster" ? "darkcyan" : 
+                          d["type"] === "Plane" ? "darkgreen" :
+                          d["type"] === "Telecommunications" ? "red" : 
+                          d["type"] === "Aerospace company" ? "darkturquoise" :
+                          d["type"] === "Airline Company" ? "purple" : "black");
+
+    const namesX = wrapper
+        .append("g")
+        .attr("transform", `translate(${dimension.margin.left},${dimension.margin.top - 10})` )
+        .selectAll("text")
+        .data(techsSorted)
+        .enter()
+        .append("text")
+        .attr("y",(d,i)=> i*25+16)
+        .text(d=>d.id)
+        .style("text-anchor","start")
+        .attr("transform", "rotate(270)");
+
+    const namesY = wrapper
+        .append("g")
+        .attr("transform", `translate(${dimension.margin.left - 10},${dimension.margin.top})`)
+        .selectAll("text")
+        .data(orgsSorted)
+        .enter()
+        .append("text")
+        .attr("y",(d,i)=> i*25+16)
+        .text(d=>d.id)
+        .style("text-anchor","end");
+    }
+
+    build();
+  </script>
+  <style>
+    .grid {
+  stroke: #9A8B7A;
+  stroke-width: 1px;
+  fill: #CF7D1C;
+    }
+    .arc {
+    stroke: #9A8B7A;
+    fill: none;
+    }
+    .node {
+    fill: #EBD8C1;
+    stroke: #9A8B7A;
+    stroke-width: 1px;
+    }
+    circle.active {
+    fill: #FE9922;
+    }
+    path.active {
+    stroke: #FE9922;
+    }
+    circle.source {
+    fill: #93C464;
+    }
+    circle.target {
+    fill: #41A368;
+    }
+
+    #wrapper {
+    float:left;
+    }
+    #legends{    
+      position: absolute;
+      font-size: 15px;
+    }
+    #row-legends{
+    float:left;
+    width: 200px;
+    }
+    #column-legends{
+    float:left;
+    width: 200px;
+    }
+
+    .legend{ 
+      stroke: #9A8B7A;
+      stroke-width: 1px;
+      width: 10px;
+      height: 10px;
+    }
+    
+    .colorbox {
+      width: 10px;
+      height: 10px;
+    }
+
+    tr > td:nth-child(3) {
+      float: right;
+    }
+
+  </style>
+</head>
+<body>
+<div id="wrapper"></div>
+
+<table id="legends">
+  <tbody>
+    <tr>
+      <td>Rows</td>
+      <td>Color</td>
+      <td>Columns</td>
+    </tr>
+    <tr>
+      <td>US</td>
+      <td style="background: darkblue"></td>
+      <td>Space object</td>
+    </tr>
+    <tr>
+      <td>UK</td>
+      <td style="background: darkorange"></td>
+      <td>Space Program</td>
+    </tr>
+    <tr>
+      <td>France</td>
+      <td style="background: darkcyan"></td>
+      <td>Booster</td>
+    </tr>
+    <tr>
+      <td>Italy</td>
+      <td style="background: darkgreen"></td>
+      <td>Plane</td>
+    </tr>
+    <tr>
+      <td>Russia</td>
+      <td style="background: red"></td>
+      <td>Telecommunications</td>
+    </tr>
+    <tr>
+      <td>Japan</td>
+      <td style="background: darkturquoise"></td>
+      <td>Aerospace Company</td>
+    </tr>
+    <tr>
+      <td>International</td>
+      <td style="background: purple"></td>
+      <td>Airline Company</td>
+    </tr>
+  </tbody>
+</table>
+</body>
+</html>
